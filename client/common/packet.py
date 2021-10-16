@@ -1,16 +1,17 @@
 class Packet():
 
     #packet format
-    # DATATYPE_SENDER_MESSAGE
-    # 0_SERVER_AUTHENTICATED_LOGIN_REQUEST
+    # DATATYPE_SENDER_RECIPIENT:MESSAGE
+    # 0_SERVER_12550:AUTHENTICATED_LOGIN_REQUEST
 
     def __init__(self, conn):
 
-        self.types = ("string", "int", "float", "server_request", "client_request", "message")
+        self.types = ("string", "int", "float", "server_request", "server_response", "client_request", "client_response", "message")
 
         self.type = None
         self.sender = None
         self.message = None
+        self.recipient = None
 
         self.packet_decoded = None
 
@@ -34,7 +35,7 @@ class Packet():
 
                 self.parsed_packet = self.parse(packet)
 
-                self.type, self.sender, self.message = self.parsed_packet
+                self.type, self.sender, self.message, self.recipient = self.parsed_packet
 
         except ConnectionResetError:
             pass
@@ -46,29 +47,44 @@ class Packet():
 
         datatype = int(packet[0])
 
-        message = ""
-
         sender_ok = False
 
-        for i in range(len(packet)):
+        recipient = ""
 
+        recipient_ok = False
+
+        message = ""
+
+
+        for i in range(len(packet)):
             if i > 0 and sender_ok == False:
 
                 if len(sender) > 1:
                     if packet[i] == "_":
                         sender_ok = True
+                        continue
 
-                sender += packet[i]
-                if sender_ok:
+                if packet[i] != "_":
+                    sender += packet[i]
                     continue
 
-            if sender_ok:
-                message += packet[i]
 
-        return (datatype, sender, message) #(int, string, string)
+            if sender_ok:
+                if recipient_ok == False:
+                    if packet[i] == ":":
+                        recipient_ok = True
+                        continue
+                    recipient += packet[i]
+                    continue
+
+                message += packet[i]
+                
+            
+        #print(datatype, sender, message, recipient)
+        return (datatype, sender, message, recipient) #(int, string, string)
 
     def getall(self):
-        return (self.datatype, self.sender, self.message)
+        return (self.type, self.sender, self.message, self.recipient)
 
     def HEADER_SIZE():
         return int(2048)
@@ -76,11 +92,13 @@ class Packet():
     def FORMAT():
         return str('utf-8')
 
-    def send(conn, datatype, message):
+    def send(conn, datatype, message, recipient):
 
         sender = conn.getsockname()
+
+        recipient = str(recipient)
         
-        raw_msg = f"{str(datatype)}_{str(sender)}_{str(message)}".encode(Packet.FORMAT())
+        raw_msg = f"{str(datatype)}_{str(sender)}_{recipient}:{str(message)}".encode(Packet.FORMAT())
         
         size = str(len(raw_msg)).encode(Packet.FORMAT())
         size += b' ' * (Packet.HEADER_SIZE() - len(size))
@@ -91,5 +109,22 @@ class Packet():
         except ConnectionResetError:
             #close connection
             pass
+
+    def sendToClient(conn, datatype, sender, message, recipient):
+
+        recipient = str(recipient)
+        
+        raw_msg = f"{str(datatype)}_{str(sender)}_{recipient}:{str(message)}".encode(Packet.FORMAT())
+        
+        size = str(len(raw_msg)).encode(Packet.FORMAT())
+        size += b' ' * (Packet.HEADER_SIZE() - len(size))
+
+        try:
+            conn.send(size)
+            conn.send(raw_msg)
+        except ConnectionResetError:
+            #close connection
+            pass
+
 
                 

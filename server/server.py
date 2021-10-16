@@ -1,11 +1,9 @@
 import socket
 import threading
-import helper
- 
 from common.packet import Packet
 
-from client import Client
-
+SERVER_CODE = "100000"
+GLOBAL_CODE = "100001"
 
 class Server():
     def __init__(self):
@@ -21,6 +19,7 @@ class Server():
         self.server.bind(self.ADDR)
 
         self.connectedClients = [] #[client]
+        self.activeChannel = [["SERVER", SERVER_CODE], ["GLOBAL", GLOBAL_CODE]] #['channelname', 'channelsocket']
 
         pass
 
@@ -41,20 +40,41 @@ class Server():
         client = None 
 
         while connected:
-            Packet.send(conn, 0, "WELCOME!!!")
+            Packet.send(conn, 0, "WELCOME!!!", conn.getsockname())
 
             packet = Packet(conn)
 
-            if int(packet.type) == 4:
-                
-                request_code = helper.parse_client_request(packet)
-                client = helper.handle_client_request(request_code, packet, (conn, addr, client), self.connectedClients) # NOT WORKING PLEASE FIX
-                #print(client.handle_client(packet))
+            if packet.type == 5:#TYPE IS A CLIENT_REQUEST packet.types[5] = "client_request"
+                if packet.recipient == SERVER_CODE:
+                    request_code = helper.parse_client_request(packet)
+
+                    packet = Packet(conn)#expecting the login packet
+
+                   # datatype, sender, message, recipient = packet.getall()
+                    print(packet.getall())
+
+                    client = helper.handle_client_request(request_code, packet, (conn, addr))
+                    client.set_server(self)
+                    self.connectedClients.append(client)
+
                     
-            if packet.type == packet.types[5]:
+            if packet.type == 7: #TYPE IS A MESSAGE packet.types[7] = "message"
                 if client is not None:
                     client.handle_client(packet)
 
-server = Server()
+    def search_user(self, sockname):
+        for i in self.connectedClients:
+            if sockname == i.addr:
+                return i
 
+        return None
+
+    def updateActiveChannel(self, name, socketorcode, type):#UPDATE ACTIVE CHANNELS
+        pass
+
+
+server = Server()
+import helper as helper
 server.start()
+
+

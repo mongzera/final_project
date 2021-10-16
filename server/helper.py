@@ -1,5 +1,7 @@
-from client import Client
-from common.packet import Packet
+
+
+requests = ["LOGIN_REQUEST", "REGISTER_REQUEST"]
+response = ["LOGIN_AUTHENTICATED", "REGISTRATION_AUTHENTICATED"]
 
 def parse_userlogin(data):
     underscores = 0
@@ -20,46 +22,51 @@ def parse_userlogin(data):
 
     return (username, password)
 
-def auth_login(u_p):
-    username = u_p[0]
-    password = u_p[1]
-
-    if username == "ethan" and password == "gamat":
-        return 0
+               
 
 def parse_client_request(packet):
-    requests = ["LOGIN_REQUEST", "REGISTER_REQUEST"]
 
-    datatype, sender, message = packet.getall()
+    datatype, sender, message, recipient = packet.getall()
 
+    datatype = int(datatype)
 
-    message = int(message)
-    if datatype == packet.types[4]:
-        if message == 0:
+    message = str(message)
+
+    
+
+    if datatype == 5: #CLIENT_REQUEST packet.types[5] = "client_request"
+        if message == requests[0]:
             request_code = 0
-        elif message == 1:
+        elif message == requests[1]:
             request_code = 1
         else:
             request_code = -1
+        
+        return request_code
 
-def auth_login(info, client_comp):
+def auth_login(info, conn):
+
     username, password = info
 
-    conn, addr = client_comp
+    names = [['ethan', 'gamat'], ['van', 'quitong']]
 
 
-    if username == "ethan" and password == "gamat":
-        return Client(conn, addr, username, password)
+    for i in names:
+        if username == i[0] and password == i[1]:
+            from client import Client
+            return Client(conn, username, password)
     return -1
 
-def handle_client_request(request_code, packet, client_comp, connected_clients):
-    datatype, sender, message = packet.getall()
+def handle_client_request(request_code, packet, conn):
+    datatype, sender, message, recipient = packet.getall()
 
     if request_code == 0: #handle login request
+
         username, password = str(message).split("&")
 
-        client = auth_login((username, password), client_comp)
-        print(f"CLIENT:{client}")
+        print(username, password)
+
+        client = auth_login((username, password), conn)
         return client
 
 
