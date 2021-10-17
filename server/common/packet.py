@@ -1,3 +1,5 @@
+from helper import response
+
 class Packet():
 
     #packet format
@@ -92,7 +94,7 @@ class Packet():
     def FORMAT():
         return str('utf-8')
 
-    def send(conn, datatype, message, recipient):
+    def send(conn, datatype, message, recipient, server = None):
 
         sender = conn.getsockname()
 
@@ -107,10 +109,17 @@ class Packet():
             conn.send(size)
             conn.send(raw_msg)
         except ConnectionResetError:
-            #close connection
-            pass
+            if server != None:
+                
+                for i in server.connectedClients:
+                    if conn == i.conn:
+                        server.connectedClients.remove(i)
+                        server.response_to_all(4, server.get_connected_clients_addr(), response[2])
+                        print("REMOVE")
+                        return -1
+            
 
-    def sendToClient(conn, datatype, sender, message, recipient):
+    def sendToClient(conn, datatype, sender, message, recipient, server = None):
 
         recipient = str(recipient)
         
@@ -124,7 +133,16 @@ class Packet():
             conn.send(raw_msg)
         except ConnectionResetError:
             #close connection
-            pass
+            if server != None:
+                
+                for i in server.connectedClients:
+                    if conn == i.conn:
+                        server.connectedClients.remove(i)
+                        server.response_to_all(4, server.get_connected_clients_addr(), response[2])
+                        print("REMOVE")
+                        return -1
+            
+            
 
 
                 

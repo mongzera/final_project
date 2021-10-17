@@ -1,4 +1,4 @@
-
+import json
 from common.packet import Packet
 import helper as helper
 
@@ -16,25 +16,50 @@ class Client():
         self.conn = conn[0]
         self.addr = conn[1]
 
-        Packet.send(self.conn, 4, helper.response[0], str(self.addr))
+        self.channels = []#CHANNELS ["NAME", CODE]
+
+        Packet.send(self.conn, 4, helper.response[0], str(self.addr), server=self.serverObject)
         print("SENT AUTHENTICATION")
 
-
-        pass
 
     def handle_client(self, packet):
         datatype, sender, message, recipient = packet.getall()
 
         if datatype == 7: #MESSAGE
+            print("RECIPIENT:"+recipient)
+            recipient = str(recipient)
+
+            for i in self.serverObject.activeChannel:
+                if int(recipient) == i[1]:
+                    print("GROUP MESSG")
+                    self.message_group(recipient, sender, message)
+                    return
+
             if recipient == GLOBAL_CODE: #RECIPIENT IS GLOBAL
-                print("messgrecved")
+                print("GLOBAL MSSG")
                 self.message_all(datatype, sender, message)
+                return
+
+            
+
+            if "(" in recipient and ")" in recipient:
+                # recipient = recipient.replace("(", "")
+                # recipient = recipient.replace(")", "")
+                # recipient = recipient.replace('"', "")
+                # recipient = recipient.replace("'", "")
+                # recipient = recipient.replace(" ", "")
+                # recipient = recipient.split(",")
+                
+                for i in self.serverObject.connectedClients:
+                    if recipient == str(i.addr):
+                        print("PRVT MESSG")
+                        self.messege(i.conn, datatype, sender, message, recipient)
+                        return
+
         
 
-    def messege(self, datatype, sender, message, recipient):
-        recver = self.serverObject.search_user(recipient)
-
-        Packet.sendToClient(recver.conn, datatype, self.username, message, recver.username)
+    def messege(self,conn, datatype, sender, message, recipient):
+        Packet.sendToClient(conn, datatype, self.username, message, recipient, server=self.serverObject)
         
 
     def message_all(self, datatype, sender, message):
@@ -43,13 +68,31 @@ class Client():
             if str(i.addr) == str(self.addr):
                 continue
             
-            Packet.sendToClient(i.conn, datatype, self.username, message, i.username)
+            Packet.sendToClient(i.conn, datatype, self.username, message, i.username, server=self.serverObject)
+
+    def message_group(self, group, sender, message):
+        print("FINDING GROUPMATES")
+        for i in self.serverObject.connectedClients:
+            print("FOUNG GROUPMATE")
+            for j in i.channels:
+                print("CHECKING GROUPMATE")
+                print(str(group), str(j[1]))
+                if str(group) == str(j[1]):
+                    print("SENDING TO" + i.username)
+                    Packet.sendToClient(i.conn, 7, sender, message, i.username)
+                    
 
     def set_server(self, server):
         self.serverObject = server
         self.server = server.server
 
-        self.serverObject.updateActiveChannel(self.username, self.addr, 1)
+    def wrong_username_and_password(conn):
+        Packet.send(conn, 4, helper.response[3], conn.getsockname())
+        return -1
+
+    def already_logged_in(conn):
+        Packet.send(conn, 4, helper.response[5], conn.getsockname())
+        return -1
 
 
 
